@@ -38,7 +38,6 @@ const Room = () => {
   const [searchParams] = useSearchParams();
   const isCreator = searchParams.get('create') === 'true';
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
   const { toast } = useToast();
   const [isInitializing, setIsInitializing] = useState(true);
   
