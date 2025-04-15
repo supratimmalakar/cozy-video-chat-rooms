@@ -1,34 +1,10 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { setRoomId, setIsRoomCreator, setError, resetRoom } from '@/store/slices/roomSlice';
 import VideoPlayer from '@/components/VideoPlayer';
 import Controls from '@/components/Controls';
 import RoomIdDisplay from '@/components/RoomIdDisplay';
-import WebRTCService from '@/services/webrtc';
-
-// Mock Firebase reference for signaling
-// This would be replaced with actual Firebase initialization in a production app
-const mockFirebaseRef = {
-  child: (path: string) => ({
-    set: async (data: any) => {
-      console.log(`Setting data at ${path}:`, data);
-      return Promise.resolve();
-    },
-    push: (data: any) => {
-      console.log(`Pushing data to ${path}:`, data);
-      return {
-        key: 'mock-key-' + Math.random().toString(36).substring(2, 9)
-      };
-    },
-    on: (eventType: string, callback: any) => {
-      console.log(`Listening for ${eventType} events at ${path}`);
-      // We won't simulate anything here as the WebRTC service now handles this
-    },
-    off: () => console.log(`Removing listeners from ${path}`),
-  }),
-};
 
 /**
  * Video conferencing room page
@@ -41,46 +17,86 @@ const Room = () => {
   const { toast } = useToast();
   const [isInitializing, setIsInitializing] = useState(true);
   
-  const {
-    localParticipant,
-    remoteParticipant,
-    connectionStatus,
-    error
-  } = useAppSelector((state) => state.room);
-
-  // Initialize WebRTC and room when component mounts
+  // UI-only state for local participants
+  const [localParticipant, setLocalParticipant] = useState<{
+    stream: MediaStream | null;
+    isAudioEnabled: boolean;
+    isVideoEnabled: boolean;
+  } | null>(null);
+  
+  // UI-only state for remote participant
+  const [remoteParticipant, setRemoteParticipant] = useState<{
+    stream: MediaStream | null;
+    isAudioEnabled: boolean;
+    isVideoEnabled: boolean;
+    connectionStatus: 'connecting' | 'connected' | 'disconnected';
+  } | null>(null);
+  
+  // Toggle local audio
+  const handleToggleAudio = () => {
+    if (localParticipant) {
+      setLocalParticipant({
+        ...localParticipant,
+        isAudioEnabled: !localParticipant.isAudioEnabled
+      });
+    }
+  };
+  
+  // Toggle local video
+  const handleToggleVideo = () => {
+    if (localParticipant) {
+      setLocalParticipant({
+        ...localParticipant,
+        isVideoEnabled: !localParticipant.isVideoEnabled
+      });
+    }
+  };
+  
+  // Leave call handler
+  const handleLeaveCall = () => {
+    navigate('/');
+  };
+  
+  // Simulating initialization for UI-only mode
   useEffect(() => {
     if (!id) {
       navigate('/');
       return;
     }
 
-    // Initialize room state
-    dispatch(resetRoom());
-    dispatch(setRoomId(id));
-    dispatch(setIsRoomCreator(isCreator));
+    console.log(`Initializing UI for room ${id} as ${isCreator ? 'creator' : 'joiner'}`);
     
-    console.log(`Initializing room ${id} as ${isCreator ? 'creator' : 'joiner'}`);
-    
-    // Initialize WebRTC service
-    WebRTCService.initialize(mockFirebaseRef);
-    
-    // Start or join room based on URL parameter
+    // Simulate getting local media stream
     const initializeRoom = async () => {
       try {
-        if (isCreator) {
-          console.log('Starting room as creator');
-          await WebRTCService.startRoom(id);
-        } else {
-          console.log('Joining existing room');
-          await WebRTCService.joinRoom(id);
+        // Simulate a small delay as if we're getting media stream
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Create a fake participant for UI testing
+        setLocalParticipant({
+          stream: null, // In a real app, this would be the actual MediaStream
+          isAudioEnabled: true,
+          isVideoEnabled: true
+        });
+        
+        // If joining as non-creator, simulate connecting to an existing room
+        if (!isCreator) {
+          // Simulate a delay for "connecting" to the remote participant
+          setTimeout(() => {
+            setRemoteParticipant({
+              stream: null, // In a real app, this would be the remote MediaStream
+              isAudioEnabled: true,
+              isVideoEnabled: true,
+              connectionStatus: 'connected'
+            });
+          }, 2000);
         }
       } catch (error) {
         console.error('Error initializing room:', error);
         toast({
           variant: "destructive",
           title: "Connection Error",
-          description: "Failed to access your camera and microphone. Please check permissions and try again.",
+          description: "Failed to initialize the room. Please try again.",
         });
         navigate('/');
       } finally {
@@ -92,21 +108,9 @@ const Room = () => {
     
     // Cleanup when component unmounts
     return () => {
-      WebRTCService.leaveRoom();
+      // Any cleanup needed
     };
-  }, [id, isCreator, dispatch, navigate, toast]);
-
-  // Display errors as toasts
-  useEffect(() => {
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error,
-      });
-      dispatch(setError(null));
-    }
-  }, [error, toast, dispatch]);
+  }, [id, isCreator, navigate, toast]);
 
   // Loading state
   if (isInitializing) {
@@ -159,7 +163,14 @@ const Room = () => {
                 )}
                 
                 {/* Call controls */}
-                <Controls className="absolute bottom-0 left-0 right-0" />
+                <Controls 
+                  className="absolute bottom-0 left-0 right-0"
+                  onToggleAudio={handleToggleAudio}
+                  onToggleVideo={handleToggleVideo}
+                  onLeaveCall={handleLeaveCall}
+                  isAudioEnabled={localParticipant?.isAudioEnabled}
+                  isVideoEnabled={localParticipant?.isVideoEnabled}
+                />
               </div>
             )}
             
@@ -180,18 +191,14 @@ const Room = () => {
                   <p className="text-sm text-gray-600">Share the room ID with someone to start the call</p>
                 </div>
                 
-                <Controls className="absolute bottom-0 left-0 right-0" />
-              </div>
-            )}
-            
-            {isInitializing && (
-              <div className="min-h-screen flex items-center justify-center">
-                <div className="flex flex-col items-center">
-                  <div className="loading-spinner mb-4"></div>
-                  <p className="text-lg font-medium">
-                    {isCreator ? 'Creating your room...' : 'Joining room...'}
-                  </p>
-                </div>
+                <Controls 
+                  className="absolute bottom-0 left-0 right-0"
+                  onToggleAudio={handleToggleAudio}
+                  onToggleVideo={handleToggleVideo}
+                  onLeaveCall={handleLeaveCall}
+                  isAudioEnabled={localParticipant.isAudioEnabled}
+                  isVideoEnabled={localParticipant.isVideoEnabled}
+                />
               </div>
             )}
           </div>
