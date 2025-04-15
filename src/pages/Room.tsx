@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
@@ -13,23 +12,19 @@ import WebRTCService from '@/services/webrtc';
 // This would be replaced with actual Firebase initialization in a production app
 const mockFirebaseRef = {
   child: (path: string) => ({
-    set: async (data: any) => console.log(`Setting data at ${path}:`, data),
-    push: (data: any) => console.log(`Pushing data to ${path}:`, data),
+    set: async (data: any) => {
+      console.log(`Setting data at ${path}:`, data);
+      return Promise.resolve();
+    },
+    push: (data: any) => {
+      console.log(`Pushing data to ${path}:`, data);
+      return {
+        key: 'mock-key-' + Math.random().toString(36).substring(2, 9)
+      };
+    },
     on: (eventType: string, callback: any) => {
       console.log(`Listening for ${eventType} events at ${path}`);
-      // For development, we'll simulate WebRTC signaling manually
-      if (path.includes('offer') && !path.includes('initiator')) {
-        setTimeout(() => {
-          // Simulate receiving an offer when joining
-          callback({
-            exists: () => true,
-            val: () => ({
-              type: 'offer',
-              sdp: 'simulated_sdp_for_development',
-            }),
-          });
-        }, 1500);
-      }
+      // We won't simulate anything here as the WebRTC service now handles this
     },
     off: () => console.log(`Removing listeners from ${path}`),
   }),
@@ -66,6 +61,8 @@ const Room = () => {
     dispatch(setRoomId(id));
     dispatch(setIsRoomCreator(isCreator));
     
+    console.log(`Initializing room ${id} as ${isCreator ? 'creator' : 'joiner'}`);
+    
     // Initialize WebRTC service
     WebRTCService.initialize(mockFirebaseRef);
     
@@ -73,8 +70,10 @@ const Room = () => {
     const initializeRoom = async () => {
       try {
         if (isCreator) {
+          console.log('Starting room as creator');
           await WebRTCService.startRoom(id);
         } else {
+          console.log('Joining existing room');
           await WebRTCService.joinRoom(id);
         }
       } catch (error) {
@@ -183,6 +182,17 @@ const Room = () => {
                 </div>
                 
                 <Controls className="absolute bottom-0 left-0 right-0" />
+              </div>
+            )}
+            
+            {isInitializing && (
+              <div className="min-h-screen flex items-center justify-center">
+                <div className="flex flex-col items-center">
+                  <div className="loading-spinner mb-4"></div>
+                  <p className="text-lg font-medium">
+                    {isCreator ? 'Creating your room...' : 'Joining room...'}
+                  </p>
+                </div>
               </div>
             )}
           </div>

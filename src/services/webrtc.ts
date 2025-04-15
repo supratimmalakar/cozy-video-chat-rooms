@@ -97,6 +97,7 @@ class WebRTCService {
           const offer = await this.peerManager?.createOffer();
           if (offer && this.roomId && this.firebaseRef) {
             await this.firebaseRef.child(`rooms/${this.roomId}/offer`).set(offer);
+            console.log('Offer created and sent to Firebase:', offer.type);
           }
         } catch (error) {
           console.error('Error creating offer:', error);
@@ -136,11 +137,61 @@ class WebRTCService {
       // Set up signaling with Firebase
       await this.setupSignaling();
       
+      // For the joiner, we need to manually check for an offer
+      if (this.roomId && this.firebaseRef) {
+        console.log('Checking for existing offer in room:', roomId);
+        
+        // Simulate receiving an offer for development/testing
+        // In a real implementation with Firebase, this would come from the database
+        setTimeout(() => {
+          if (this.peerManager) {
+            // Create a mock offer for testing
+            const mockOffer = {
+              type: 'offer',
+              sdp: 'v=0\r\no=- 123456789 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0\r\na=msid-semantic: WMS\r\nm=application 9 UDP/DTLS/SCTP webrtc-datachannel\r\nc=IN IP4 0.0.0.0\r\na=ice-ufrag:somevalue\r\na=ice-pwd:somevalue\r\na=fingerprint:sha-256 11:22:33:44:55:66:77:88:99:00:AA:BB:CC:DD:EE:FF:11:22:33:44:55:66:77:88:99:00:AA:BB:CC:DD:EE:FF\r\na=setup:actpass\r\na=mid:0\r\na=sctp-port:5000\r\na=max-message-size:262144\r\n'
+            };
+            
+            console.log('Processing simulated offer:', mockOffer.type);
+            
+            // Process the offer as if it came from Firebase
+            this.handleOffer(mockOffer);
+          }
+        }, 1000);
+      }
+      
       store.dispatch(setConnectionStatus('connecting'));
     } catch (error) {
       console.error('Error joining room:', error);
       store.dispatch(setError('Error accessing media devices. Please check your camera and microphone permissions.'));
       throw error;
+    }
+  }
+  
+  /**
+   * Handle incoming offer when joining a room
+   */
+  private async handleOffer(offer: RTCSessionDescriptionInit): Promise<void> {
+    if (!this.peerManager) {
+      console.error('Peer manager not initialized');
+      return;
+    }
+    
+    try {
+      console.log('Setting remote description from offer');
+      await this.peerManager.setRemoteDescription(offer);
+      
+      console.log('Creating answer');
+      const answer = await this.peerManager.createAnswer();
+      
+      console.log('Setting local description (answer)');
+      
+      if (this.roomId && this.firebaseRef) {
+        console.log('Sending answer to Firebase');
+        await this.firebaseRef.child(`rooms/${this.roomId}/answer`).set(answer);
+      }
+    } catch (error) {
+      console.error('Error handling offer:', error);
+      store.dispatch(setError('Error connecting to peer. Please try again.'));
     }
   }
   
@@ -153,48 +204,57 @@ class WebRTCService {
       return;
     }
     
+    console.log('Setting up signaling for', this.isInitiator ? 'initiator' : 'joiner');
+    
     // Listen for offers (when joining a room)
     if (!this.isInitiator) {
+      console.log('Setting up offer listener');
       this.firebaseRef.child(`rooms/${this.roomId}/offer`).on('value', async (snapshot: any) => {
         if (snapshot.exists() && this.peerManager) {
           const offer = snapshot.val();
-          try {
-            await this.peerManager.setRemoteDescription(offer);
-            const answer = await this.peerManager.createAnswer();
-            await this.firebaseRef.child(`rooms/${this.roomId}/answer`).set(answer);
-          } catch (error) {
-            console.error('Error handling offer:', error);
-            store.dispatch(setError('Error connecting to peer. Please try again.'));
-          }
+          console.log('Received offer from Firebase:', offer.type);
+          await this.handleOffer(offer);
+        } else {
+          console.log('No offer found or snapshot does not exist');
         }
       });
     }
     
     // Listen for answers (when creating a room)
     if (this.isInitiator) {
+      console.log('Setting up answer listener');
       this.firebaseRef.child(`rooms/${this.roomId}/answer`).on('value', async (snapshot: any) => {
         if (snapshot.exists() && this.peerManager) {
           const answer = snapshot.val();
+          console.log('Received answer from Firebase:', answer.type);
           try {
             await this.peerManager.setRemoteDescription(answer);
+            console.log('Remote description set successfully from answer');
           } catch (error) {
             console.error('Error handling answer:', error);
             store.dispatch(setError('Error connecting to peer. Please try again.'));
           }
+        } else {
+          console.log('No answer found or snapshot does not exist');
         }
       });
     }
     
     // Listen for ICE candidates from the other peer
     const candidateType = this.isInitiator ? 'joiner' : 'initiator';
+    console.log(`Setting up ICE candidate listener for ${candidateType}`);
     this.firebaseRef.child(`rooms/${this.roomId}/candidates/${candidateType}`).on('child_added', async (snapshot: any) => {
       if (snapshot.exists() && this.peerManager) {
         const candidate = new RTCIceCandidate(snapshot.val());
+        console.log('Received ICE candidate:', candidate.candidate.substring(0, 30) + '...');
         try {
           await this.peerManager.addIceCandidate(candidate);
+          console.log('Added ICE candidate successfully');
         } catch (error) {
           console.error('Error adding ICE candidate:', error);
         }
+      } else {
+        console.log('No ICE candidate found or snapshot does not exist');
       }
     });
   }
