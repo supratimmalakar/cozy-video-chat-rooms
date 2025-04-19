@@ -130,7 +130,7 @@ const Room = () => {
     <div className="min-h-screen bg-gradient-to-br from-cozy-background to-white flex flex-col">
       {/* Header with room info */}
       <header className="p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-cozy-primary">Cozy Video Chat</h1>
+        <h1 className="text-xl font-bold text-cozy-primary">Catchup - Video Chat</h1>
         {id && <RoomIdDisplay roomId={id} />}
       </header>
       

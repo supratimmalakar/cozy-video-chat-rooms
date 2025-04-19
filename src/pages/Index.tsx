@@ -57,7 +57,7 @@ const Index = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cozy-background to-white p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-cozy-primary mb-2">Cozy Video Chat</h1>
+          <h1 className="text-4xl font-bold text-cozy-primary mb-2">Catchup - Video Chat</h1>
           <p className="text-cozy-foreground opacity-80">Simple, secure, peer-to-peer video calls</p>
         </div>
 
