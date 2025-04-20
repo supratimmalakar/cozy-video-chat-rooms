@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface VideoPlayerProps {
@@ -21,6 +21,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   connectionStatus = 'connected',
   className
 }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [videoRef, stream])
   return (
     <div className={cn("video-container relative overflow-hidden rounded-xl", className)}>
       {stream ? (
@@ -29,6 +36,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             autoPlay
             playsInline
             muted={muted}
+            ref={videoRef}
             className={cn(
               "video-element w-full h-full object-cover",
               isLocal && "scale-x-[-1]"

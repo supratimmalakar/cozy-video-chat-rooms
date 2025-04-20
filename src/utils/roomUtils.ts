@@ -8,5 +8,5 @@
  * @returns A random string that can be used as a room ID
  */
 export function createRoomId(): string {
-  return Math.random().toString(36).substring(2, 12);
+  return crypto.randomUUID().substring(0, 8);
 }

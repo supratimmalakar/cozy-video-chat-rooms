@@ -1,11 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { createRoomId } from '@/utils/roomUtils';
+import { getConnectedDevices } from '@/utils/helpers';
+import { useAppDispatch, useAppSelector } from '@/redux/hooks';
+import { setAudioDevices, setVideoDevices } from '@/redux/mediaSlice';
 
 /**
  * Home page with room creation and joining options
@@ -16,12 +19,25 @@ const Index = () => {
   const [roomId, setRoomId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const dispatch = useAppDispatch();
 
-  /**
-   * Create a new room and navigate to it
-   */
-  const handleCreateRoom = () => {
+  const setMediaDevices = useCallback(async () => {
     try {
+      const devices = await getConnectedDevices();
+      const audioDevices = [...devices.filter(device => device.kind === 'audioinput')]
+      const videoDevices = [...devices.filter(device => device.kind === 'videoinput')]
+      dispatch(setVideoDevices(videoDevices))
+      dispatch(setAudioDevices(audioDevices))
+    }
+    catch (err) {
+      console.log(err)
+    }
+  }, [dispatch])
+
+
+  const handleCreateRoom = async () => {
+    try {
+      await setMediaDevices()
       setIsCreating(true);
       const newRoomId = createRoomId();
       navigate(`/room/${newRoomId}?create=true`);
@@ -39,7 +55,7 @@ const Index = () => {
   /**
    * Join an existing room by ID
    */
-  const handleJoinRoom = () => {
+  const handleJoinRoom = async () => {
     if (!roomId.trim()) {
       toast({
         variant: "destructive",
@@ -48,7 +64,7 @@ const Index = () => {
       });
       return;
     }
-
+    await setMediaDevices()
     setIsJoining(true);
     navigate(`/room/${roomId}`);
   };

@@ -5,6 +5,8 @@ import { useToast } from '@/components/ui/use-toast';
 import VideoPlayer from '@/components/VideoPlayer';
 import Controls from '@/components/Controls';
 import RoomIdDisplay from '@/components/RoomIdDisplay';
+import { useAppSelector } from '@/redux/hooks';
+import { mediaState } from '@/redux/mediaSlice';
 
 /**
  * Video conferencing room page
@@ -16,6 +18,7 @@ const Room = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isInitializing, setIsInitializing] = useState(true);
+  const {selectedAudioInputId, selectedVideoInputId} = useAppSelector(mediaState)
   
   // UI-only state for local participants
   const [localParticipant, setLocalParticipant] = useState<{
@@ -70,11 +73,18 @@ const Room = () => {
     const initializeRoom = async () => {
       try {
         // Simulate a small delay as if we're getting media stream
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            deviceId: selectedVideoInputId,
+          },
+          audio: {
+            deviceId: selectedAudioInputId
+          }
+        })
         
         // Create a fake participant for UI testing
         setLocalParticipant({
-          stream: null, // In a real app, this would be the actual MediaStream
+          stream, // In a real app, this would be the actual MediaStream
           isAudioEnabled: true,
           isVideoEnabled: true
         });
@@ -186,10 +196,10 @@ const Room = () => {
                   className="h-full w-full"
                 />
                 
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-4 rounded-lg text-center">
+                {/* <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-4 rounded-lg text-center">
                   <p className="text-lg font-medium mb-2">Waiting for someone to join...</p>
                   <p className="text-sm text-gray-600">Share the room ID with someone to start the call</p>
-                </div>
+                </div> */}
                 
                 <Controls 
                   className="absolute bottom-0 left-0 right-0"
