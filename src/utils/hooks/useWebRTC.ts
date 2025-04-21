@@ -133,7 +133,6 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
 
     const offerCandidatesRef = collection(roomRef, 'offerCandidates');
     const answerCandidatesRef = collection(roomRef, 'answerCandidates');
-    const participants = collection(roomRef, 'participants');
     const participantRef = doc(db, 'rooms', id, 'participants', userId);
 
     pc.current.onicecandidate = async (event) => {
