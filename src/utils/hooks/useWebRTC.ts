@@ -35,6 +35,7 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
   const localStream = useRef<MediaStream | null>(null);
   const remoteStream = useRef<MediaStream | null>(null);
   const isRoomInitialized = useRef<boolean>(false);
+  const creatorJoined = useRef<boolean>(false);
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -100,6 +101,14 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
         }))
       } else {
         setRemoteParticipant(null)
+        if (creatorJoined.current) {
+          navigate('/')
+          toast({
+            variant: "destructive",
+            title: "Call Ended",
+          });
+        }
+
       }
     });
   
@@ -161,6 +170,8 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
       createdAt: new Date(),
     });
 
+    creatorJoined.current = true
+
     onSnapshot(roomRef, async (snapshot) => {
       const data = snapshot.data();
       if (data?.answer && !pc.current.currentRemoteDescription) {
@@ -179,6 +190,7 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
 
   async function joinRoom(id: string) {
     const roomRef = doc(db, 'rooms', id);
+    creatorJoined.current = true;
 
     const answerCandidatesRef = collection(roomRef, 'answerCandidates');
     const offerCandidatesRef = collection(roomRef, 'offerCandidates');
