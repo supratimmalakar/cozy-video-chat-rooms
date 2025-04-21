@@ -99,17 +99,15 @@ const Room = () => {
       </header>
 
       {/* Main content with video streams */}
-      <main className="flex-1 p-4">
-        <div className="max-w-6xl mx-auto h-full">
-          <div className="video-grid h-full">
+      <div className="flex-1 p-4">
             {remoteParticipant && (
-              <div className="relative h-full">
+              <div className="relative flex-1">
                 {/* Remote participant (large) */}
                 <VideoPlayer
                   stream={remoteParticipant.stream}
                   isAudioEnabled={remoteParticipant.isAudioEnabled}
                   isVideoEnabled={remoteParticipant.isVideoEnabled}
-                  className="h-full w-full"
+                  className="h-[calc(100vh-120px)] w-full"
                 />
 
                 {/* Local participant (picture-in-picture) */}
@@ -139,14 +137,14 @@ const Room = () => {
 
             {/* If no remote participant yet, show only local video large */}
             {!remoteParticipant && localParticipant && (
-              <div className="relative h-full">
+              <div className="relative flex-1">
                 <VideoPlayer
                   stream={localParticipant.stream}
                   muted={true}
                   isLocal={true}
                   isAudioEnabled={localParticipant.isAudioEnabled}
                   isVideoEnabled={localParticipant.isVideoEnabled}
-                  className="h-full w-full"
+                  className="h-[calc(100vh-120px)] w-full"
                 />
 
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-4 rounded-lg text-center">
@@ -164,9 +162,7 @@ const Room = () => {
                 />
               </div>
             )}
-          </div>
-        </div>
-      </main>
+      </div>
     </div>
   );
 };

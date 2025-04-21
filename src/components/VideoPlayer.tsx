@@ -18,7 +18,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   isLocal = false,
   isAudioEnabled = true,
   isVideoEnabled = true,
-  connectionStatus = 'connected',
   className
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -28,6 +27,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       videoRef.current.srcObject = stream;
     }
   }, [videoRef, stream])
+
   return (
     <div className={cn("video-container relative overflow-hidden rounded-xl", className)}>
       {stream ? (
@@ -42,15 +42,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               isLocal && "scale-x-[-1]"
             )}
           />
-          
-          <div className="status-indicator" role="status" aria-label={`Connection status: ${connectionStatus}`}>
-            <div className={cn("status-indicator", {
-              'status-connected': connectionStatus === 'connected',
-              'status-connecting': connectionStatus === 'connecting',
-              'status-disconnected': connectionStatus === 'disconnected'
-            })}></div>
-          </div>
-          
+
           {!isVideoEnabled && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-900 text-white">
               <div className="flex flex-col items-center">
@@ -63,7 +55,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               </div>
             </div>
           )}
-          
+
           {!isAudioEnabled && (
             <div className="absolute bottom-4 left-4 bg-red-500 rounded-full p-1" title="Microphone muted">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,16 +66,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </>
       ) : (
         <div className="flex items-center justify-center w-full h-full bg-slate-900">
-          {connectionStatus === 'connecting' ? (
-            <div className="flex flex-col items-center">
-              <div className="loading-spinner mb-4"></div>
-              <p className="text-white font-medium">Connecting...</p>
-            </div>
-          ) : (
-            <div className="text-white">
-              {connectionStatus === 'disconnected' ? 'Disconnected' : 'No video'}
-            </div>
-          )}
+          <div className="text-white">
+            No video
+          </div>
         </div>
       )}
     </div>
