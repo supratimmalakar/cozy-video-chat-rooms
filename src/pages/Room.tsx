@@ -1,14 +1,11 @@
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
 import VideoPlayer from '@/components/VideoPlayer';
 import Controls from '@/components/Controls';
 import RoomIdDisplay from '@/components/RoomIdDisplay';
 import { useWebRTC } from '@/utils/hooks/useWebRTC';
 import withUser from '@/utils/withUser';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/utils/firebase';
 import { useAppSelector } from '@/redux/hooks';
 import { userState } from '@/redux/userSlice';
 import { toggleMedia } from '@/utils/helpers';
@@ -21,7 +18,6 @@ const Room = () => {
   const [searchParams] = useSearchParams();
   const isCreator = searchParams.get('create') === 'true';
   const navigate = useNavigate();
-  const { toast } = useToast();
   const {userId} = useAppSelector(userState);
   
   
