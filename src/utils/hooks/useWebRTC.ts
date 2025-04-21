@@ -6,19 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { db } from "../firebase";
 import { userState } from "@/redux/userSlice";
-
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun.l.google.com:5349" },
-  { urls: "stun:stun1.l.google.com:3478" },
-  { urls: "stun:stun1.l.google.com:5349" },
-  { urls: "stun:stun2.l.google.com:19302" },
-  { urls: "stun:stun2.l.google.com:5349" },
-  { urls: "stun:stun3.l.google.com:3478" },
-  { urls: "stun:stun3.l.google.com:5349" },
-  { urls: "stun:stun4.l.google.com:19302" },
-  { urls: "stun:stun4.l.google.com:5349" }]
-};
+import { RTC_CONFIG } from "../constants";
 
 type SetState = React.Dispatch<React.SetStateAction<{
   stream: MediaStream | null;
@@ -31,7 +19,7 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
   const { selectedAudioInputId, selectedVideoInputId } = useAppSelector(mediaState);
   const {userId} = useAppSelector(userState);
 
-  const pc = useRef(new RTCPeerConnection(ICE_SERVERS));
+  const pc = useRef(new RTCPeerConnection(RTC_CONFIG));   //Initialize WebRTC instance
   const localStream = useRef<MediaStream | null>(null);
   const remoteStream = useRef<MediaStream | null>(null);
   const isRoomInitialized = useRef<boolean>(false);
@@ -44,6 +32,8 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
   
   const isCreator = searchParams.get('create') === 'true';
 
+
+  //Gets the media stream from camera and mic and invokes the createRoom/joinRoom functions
   useEffect(() => {
     const initializeRoom = async () => {
       try {
@@ -81,6 +71,8 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
     initializeRoom();
   }, [selectedAudioInputId, selectedVideoInputId])
 
+  //This useEffect checks for any changes in the participants collection in the room,
+  //and adds the remote participant or ends the calls when one user quits
   useEffect(() => {
     if (!id) return;
     const participantsRef = collection(doc(db, 'rooms', id), 'participants');
@@ -117,22 +109,25 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
     };
   }, [id, userId])
 
+  //Runs a clean up function to delete the room or delete one participant from the room when the component unmounts or tab is closed
   useEffect(() => {
-    return () => {
-      const cleanRoom = async () => {
-        const roomRef = doc(db, 'rooms', id);
-        const participants = collection(roomRef, 'participants');
-        const participantsData = (await getDocs(participants)).docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        if (participantsData.length > 1) {
-          const participantRef = doc(db, 'rooms', id, 'participants', userId);
-          await deleteDoc(participantRef);
-        } else {
-          await deleteDoc(roomRef)
-        }
+    const cleanRoom = async () => {
+      const roomRef = doc(db, 'rooms', id);
+      const participants = collection(roomRef, 'participants');
+      const participantsData = (await getDocs(participants)).docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      if (participantsData.length > 1) {
+        const participantRef = doc(db, 'rooms', id, 'participants', userId);
+        await deleteDoc(participantRef);
+      } else {
+        await deleteDoc(roomRef)
       }
+    }
+    window.addEventListener('beforeunload', cleanRoom);
+    return () => {
+      window.removeEventListener('beforeunload', cleanRoom);
       cleanRoom()
     }
   }, [])
@@ -144,6 +139,7 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
     const answerCandidatesRef = collection(roomRef, 'answerCandidates');
     const participantRef = doc(db, 'rooms', id, 'participants', userId);
 
+    //Check for ice candidates and add then to the offerCanditates collection in the room doc as they are discovered
     pc.current.onicecandidate = async (event) => {
       if (event.candidate) {
         await addDoc(offerCandidatesRef, event.candidate.toJSON());
@@ -162,6 +158,7 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
       setRemoteParticipant({stream: remoteStream.current, isAudioEnabled: true, isVideoEnabled: true});
     };
 
+    //create a offer and save to firestore, so that the next user can use the offer to create an connection
     const offer = await pc.current.createOffer();
     await pc.current.setLocalDescription(offer);
 
@@ -172,6 +169,7 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
 
     creatorJoined.current = true
 
+    // Check for answer in the room doc. If found then set the remote description and we can move on with the handshake
     onSnapshot(roomRef, async (snapshot) => {
       const data = snapshot.data();
       if (data?.answer && !pc.current.currentRemoteDescription) {
@@ -179,6 +177,7 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
       }
     });
 
+    //Check for answer ICE Candidates from the other user
     onSnapshot(answerCandidatesRef, snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === 'added') {
@@ -219,17 +218,18 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
       return;
     }
 
+    //Limiting no. of participants to 2
     if (participantsData.length >= 2) {
       toast({
         variant: "destructive",
         title: "Room is full",
-        description: "Room is full",
       });
       return;
     }
 
     await setDoc(participantRef, user)
 
+    //Check for ice candidates and add then to the answerCanditates collection in the room doc as they are discovered
     pc.current.onicecandidate = async (event) => {
       if (event.candidate) {
         await addDoc(answerCandidatesRef, event.candidate.toJSON());
@@ -240,12 +240,14 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
       setRemoteParticipant({stream: remoteStream.current, isAudioEnabled: true, isVideoEnabled: true});
     };
 
+    //In reply to the offer from the room creator, create an answer and save it in firestore so that the creator can recieve the answer
+    //and proceed with the handshake
     pc.current.setRemoteDescription(new RTCSessionDescription(data.offer))
     const answer = await pc.current.createAnswer();
     pc.current.setLocalDescription(answer);
     await setDoc(roomRef, { ...data, answer})
 
-
+   //Check for offer ICE Candidates from the other user
     onSnapshot(offerCandidatesRef, snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === 'added') {
@@ -257,5 +259,33 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
   }
 
 
-  return { isInitializing, setIsInitializing, localStream, remoteStream, createRoom }
+  const switchVideoInput = async (newDeviceId: string) => {
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: newDeviceId },
+      });
+  
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      const videoSender = pc.current.getSenders().find(s => s.track?.kind === 'video');
+  
+      if (videoSender && newVideoTrack) {
+        await videoSender.replaceTrack(newVideoTrack);
+  
+        // Stop old track and update local stream
+        localStream.current?.getVideoTracks().forEach(track => track.stop());
+        localStream.current?.removeTrack(localStream.current.getVideoTracks()[0]);
+        localStream.current?.addTrack(newVideoTrack);
+  
+        setLocalParticipant(prev => ({
+          ...prev,
+          stream: localStream.current,
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to switch video input:", error);
+    }
+  };
+
+
+  return { isInitializing, setIsInitializing, localStream, remoteStream, createRoom, switchVideoInput }
 }
