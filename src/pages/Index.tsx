@@ -1,5 +1,5 @@
 
-import React, { useCallback, useState } from 'react';
+import React, { ReactNode, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +9,12 @@ import { createRoomId } from '@/utils/roomUtils';
 import { getConnectedDevices } from '@/utils/helpers';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { setAudioDevices, setVideoDevices } from '@/redux/mediaSlice';
+import withUser from '@/utils/withUser';
 
 /**
  * Home page with room creation and joining options
  */
-const Index = () => {
+function Index (): ReactNode {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [roomId, setRoomId] = useState('');
@@ -148,4 +149,6 @@ const Index = () => {
   );
 };
 
-export default Index;
+const Component = withUser(Index)
+
+export default Component;

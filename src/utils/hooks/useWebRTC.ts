@@ -1,34 +1,46 @@
 import { useToast } from "@/hooks/use-toast";
 import { useAppSelector } from "@/redux/hooks";
 import { mediaState } from "@/redux/mediaSlice";
-import { addDoc, collection, doc, getDoc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, onSnapshot, setDoc, updateDoc, getDocs, deleteDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { db } from "../firebase";
+import { userState } from "@/redux/userSlice";
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun.l.google.com:5349" },
-    { urls: "stun:stun1.l.google.com:3478" },
-    { urls: "stun:stun1.l.google.com:5349" },
-    { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:5349" },
-    { urls: "stun:stun3.l.google.com:3478" },
-    { urls: "stun:stun3.l.google.com:5349" },
-    { urls: "stun:stun4.l.google.com:19302" },
-    { urls: "stun:stun4.l.google.com:5349" }]
+  { urls: "stun:stun.l.google.com:5349" },
+  { urls: "stun:stun1.l.google.com:3478" },
+  { urls: "stun:stun1.l.google.com:5349" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:5349" },
+  { urls: "stun:stun3.l.google.com:3478" },
+  { urls: "stun:stun3.l.google.com:5349" },
+  { urls: "stun:stun4.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:5349" }]
 };
 
-export const useWebRTC = (onSetLocalStream: (stream: MediaStream) => void, onSetRemoteStream: (stream: MediaStream) => void) => {
+type SetState = React.Dispatch<React.SetStateAction<{
+  stream: MediaStream | null;
+  isAudioEnabled: boolean;
+  isVideoEnabled: boolean;
+}>>
+
+export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: SetState) => {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const { selectedAudioInputId, selectedVideoInputId } = useAppSelector(mediaState);
+  const {userId} = useAppSelector(userState);
+
   const pc = useRef(new RTCPeerConnection(ICE_SERVERS));
   const localStream = useRef<MediaStream | null>(null);
   const remoteStream = useRef<MediaStream | null>(null);
-  const { selectedAudioInputId, selectedVideoInputId } = useAppSelector(mediaState);
+  const isRoomInitialized = useRef<boolean>(false);
+
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [isInitializing, setIsInitializing] = useState(true);
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  
   const isCreator = searchParams.get('create') === 'true';
 
   useEffect(() => {
@@ -44,9 +56,13 @@ export const useWebRTC = (onSetLocalStream: (stream: MediaStream) => void, onSet
         })
         localStream.current = stream;
         stream.getTracks().forEach(track => pc.current.addTrack(track, stream))
-        onSetLocalStream?.(stream);
-        if (isCreator) await createRoom(id)
-        else await joinRoom(id)
+        setLocalParticipant({stream: localStream.current, isAudioEnabled: true, isVideoEnabled: true});
+
+        if (!isRoomInitialized.current) {
+          if (isCreator) await createRoom(id)
+          else await joinRoom(id);
+          isRoomInitialized.current = true
+        }
 
       } catch (error) {
         console.error('Error initializing room:', error);
@@ -64,11 +80,61 @@ export const useWebRTC = (onSetLocalStream: (stream: MediaStream) => void, onSet
     initializeRoom();
   }, [selectedAudioInputId, selectedVideoInputId])
 
-  async function createRoom (id : string) {
+  useEffect(() => {
+    if (!id) return;
+    const participantsRef = collection(doc(db, 'rooms', id), 'participants');
+
+    const unsubscribe = onSnapshot(participantsRef, snapshot => {
+      const participants = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        audio: doc.data().audio,
+        video: doc.data().video,
+      }))
+
+      const remoteParticipant = participants.filter(part => part.id !== userId)[0]
+      if (remoteParticipant) {
+        setRemoteParticipant(prev => ({
+          stream: remoteStream.current,
+          isAudioEnabled: Boolean(remoteParticipant?.audio),
+          isVideoEnabled: Boolean(remoteParticipant?.video),
+        }))
+      } else {
+        setRemoteParticipant(null)
+      }
+    });
+  
+    return () => {
+      unsubscribe()
+    };
+  }, [id, userId])
+
+  useEffect(() => {
+    return () => {
+      const cleanRoom = async () => {
+        const roomRef = doc(db, 'rooms', id);
+        const participants = collection(roomRef, 'participants');
+        const participantsData = (await getDocs(participants)).docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        if (participantsData.length > 1) {
+          const participantRef = doc(db, 'rooms', id, 'participants', userId);
+          await deleteDoc(participantRef);
+        } else {
+          await deleteDoc(roomRef)
+        }
+      }
+      cleanRoom()
+    }
+  }, [])
+
+  async function createRoom(id: string) {
     const roomRef = doc(db, 'rooms', id);
 
     const offerCandidatesRef = collection(roomRef, 'offerCandidates');
     const answerCandidatesRef = collection(roomRef, 'answerCandidates');
+    const participants = collection(roomRef, 'participants');
+    const participantRef = doc(db, 'rooms', id, 'participants', userId);
 
     pc.current.onicecandidate = async (event) => {
       if (event.candidate) {
@@ -76,9 +142,16 @@ export const useWebRTC = (onSetLocalStream: (stream: MediaStream) => void, onSet
       }
     };
 
+    const user = {
+      audio: true,
+      video: true
+    }
+
+    await setDoc(participantRef, user)
+
     pc.current.ontrack = (event) => {
       remoteStream.current = event.streams[0];
-      onSetRemoteStream(event.streams[0]);
+      setRemoteParticipant({stream: remoteStream.current, isAudioEnabled: true, isVideoEnabled: true});
     };
 
     const offer = await pc.current.createOffer();
@@ -87,7 +160,6 @@ export const useWebRTC = (onSetLocalStream: (stream: MediaStream) => void, onSet
     await setDoc(roomRef, {
       offer,
       createdAt: new Date(),
-      peerCount: 1
     });
 
     onSnapshot(roomRef, async (snapshot) => {
@@ -106,15 +178,26 @@ export const useWebRTC = (onSetLocalStream: (stream: MediaStream) => void, onSet
     });
   };
 
-  async function joinRoom (id: string) {
+  async function joinRoom(id: string) {
     const roomRef = doc(db, 'rooms', id);
-  
+
     const answerCandidatesRef = collection(roomRef, 'answerCandidates');
     const offerCandidatesRef = collection(roomRef, 'offerCandidates');
+    const participants = collection(roomRef, 'participants');
+    const participantRef = doc(db, 'rooms', id, 'participants', userId);
+
+    const user = {
+      audio: true,
+      video: true
+    }
 
     const roomSnapshot = await getDoc(roomRef);
+    const participantsData = (await getDocs(participants)).docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
     const data = roomSnapshot.data();
-    console.log(data)
+
 
     if (!roomSnapshot.exists() || !data?.offer) {
       toast({
@@ -125,7 +208,7 @@ export const useWebRTC = (onSetLocalStream: (stream: MediaStream) => void, onSet
       return;
     }
 
-    if (data.peerCount >= 2) {
+    if (participantsData.length >= 2) {
       toast({
         variant: "destructive",
         title: "Room is full",
@@ -134,7 +217,7 @@ export const useWebRTC = (onSetLocalStream: (stream: MediaStream) => void, onSet
       return;
     }
 
-    await updateDoc(roomRef, {peerCount: 2})
+    await setDoc(participantRef, user)
 
     pc.current.onicecandidate = async (event) => {
       if (event.candidate) {
@@ -143,15 +226,13 @@ export const useWebRTC = (onSetLocalStream: (stream: MediaStream) => void, onSet
     };
     pc.current.ontrack = (event) => {
       remoteStream.current = event.streams[0];
-      onSetRemoteStream(event.streams[0]);
+      setRemoteParticipant({stream: remoteStream.current, isAudioEnabled: true, isVideoEnabled: true});
     };
 
     pc.current.setRemoteDescription(new RTCSessionDescription(data.offer))
     const answer = await pc.current.createAnswer();
     pc.current.setLocalDescription(answer);
-    await setDoc(roomRef, {...data, answer})
-
-
+    await setDoc(roomRef, { ...data, answer})
 
 
     onSnapshot(offerCandidatesRef, snapshot => {

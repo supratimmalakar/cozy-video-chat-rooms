@@ -6,6 +6,12 @@ import VideoPlayer from '@/components/VideoPlayer';
 import Controls from '@/components/Controls';
 import RoomIdDisplay from '@/components/RoomIdDisplay';
 import { useWebRTC } from '@/utils/hooks/useWebRTC';
+import withUser from '@/utils/withUser';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/utils/firebase';
+import { useAppSelector } from '@/redux/hooks';
+import { userState } from '@/redux/userSlice';
+import { toggleMedia } from '@/utils/helpers';
 
 /**
  * Video conferencing room page
@@ -16,8 +22,8 @@ const Room = () => {
   const isCreator = searchParams.get('create') === 'true';
   const navigate = useNavigate();
   const { toast } = useToast();
-  const {isInitializing} = useWebRTC(onLocalStreamSet,onRemoteStreamSet);
-
+  const {userId} = useAppSelector(userState);
+  
   
   
   // UI-only state for local participants
@@ -34,45 +40,39 @@ const Room = () => {
     isVideoEnabled: boolean;
   } | null>(null);
 
-  function onLocalStreamSet (stream: MediaStream) {
-    setLocalParticipant({
-      stream,
-      isAudioEnabled: true,
-      isVideoEnabled: true
-    })
-  }
-
-  function onRemoteStreamSet (stream: MediaStream) {
-    setRemoteParticipant({
-      stream,
-      isAudioEnabled: true,
-      isVideoEnabled: true
-    })
-  }
+  const { isInitializing, localStream, remoteStream } = useWebRTC(setLocalParticipant, setRemoteParticipant);
 
   const handleToggleAudio = () => {
     if (localParticipant) {
-      setLocalParticipant({
-        ...localParticipant,
-        isAudioEnabled: !localParticipant.isAudioEnabled
-      });
+      localStream.current.getAudioTracks().forEach(track => {
+        track.enabled = !track.enabled;
+        setLocalParticipant({
+          ...localParticipant,
+          isAudioEnabled: track.enabled
+        });
+      })
+      toggleMedia(id, userId, 'audio')
     }
   };
-  
+
   // Toggle local video
   const handleToggleVideo = () => {
     if (localParticipant) {
-      setLocalParticipant({
-        ...localParticipant,
-        isVideoEnabled: !localParticipant.isVideoEnabled
-      });
+      localStream.current.getVideoTracks().forEach(track => {
+        track.enabled = !track.enabled;
+        setLocalParticipant({
+          ...localParticipant,
+          isVideoEnabled: track.enabled
+        });
+      })
+      toggleMedia(id, userId, 'video')
     }
   };
 
   const handleLeaveCall = () => {
     navigate('/');
   };
-  
+
   useEffect(() => {
     if (!id) {
       navigate('/');
@@ -101,7 +101,7 @@ const Room = () => {
         <h1 className="text-xl font-bold text-cozy-primary">Catchup - Video Chat</h1>
         {id && <RoomIdDisplay roomId={id} />}
       </header>
-      
+
       {/* Main content with video streams */}
       <main className="flex-1 p-4">
         <div className="max-w-6xl mx-auto h-full">
@@ -115,7 +115,7 @@ const Room = () => {
                   isVideoEnabled={remoteParticipant.isVideoEnabled}
                   className="h-full w-full"
                 />
-                
+
                 {/* Local participant (picture-in-picture) */}
                 {localParticipant && (
                   <div className="absolute bottom-24 right-4 w-40 h-30 md:w-64 md:h-48 shadow-lg rounded-xl overflow-hidden border-2 border-white">
@@ -128,9 +128,9 @@ const Room = () => {
                     />
                   </div>
                 )}
-                
+
                 {/* Call controls */}
-                <Controls 
+                <Controls
                   className="absolute bottom-0 left-0 right-0"
                   onToggleAudio={handleToggleAudio}
                   onToggleVideo={handleToggleVideo}
@@ -140,7 +140,7 @@ const Room = () => {
                 />
               </div>
             )}
-            
+
             {/* If no remote participant yet, show only local video large */}
             {!remoteParticipant && localParticipant && (
               <div className="relative h-full">
@@ -152,13 +152,13 @@ const Room = () => {
                   isVideoEnabled={localParticipant.isVideoEnabled}
                   className="h-full w-full"
                 />
-                
+
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm p-4 rounded-lg text-center">
                   <p className="text-lg font-medium mb-2">Waiting for someone to join...</p>
                   <p className="text-sm text-gray-600">Share the room ID with someone to start the call</p>
                 </div>
-                
-                <Controls 
+
+                <Controls
                   className="absolute bottom-0 left-0 right-0"
                   onToggleAudio={handleToggleAudio}
                   onToggleVideo={handleToggleVideo}
@@ -175,4 +175,6 @@ const Room = () => {
   );
 };
 
-export default Room;
+const Component = withUser(Room)
+
+export default Component;

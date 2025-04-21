@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import withUser from "@/utils/withUser";
 
 const NotFound = () => {
   const location = useLocation();
@@ -24,4 +25,6 @@ const NotFound = () => {
   );
 };
 
-export default NotFound;
+const Component = withUser(NotFound)
+
+export default Component;
