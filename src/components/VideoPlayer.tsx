@@ -35,7 +35,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!stream) return;
     const videoTrack = stream.getVideoTracks()[0];
     const settings = videoTrack.getSettings();
-    alert({'facingMode': settings.facingMode})
+    alert(settings.facingMode)
   }, [stream])
 
   return (
