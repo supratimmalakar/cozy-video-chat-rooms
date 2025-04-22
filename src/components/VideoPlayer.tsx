@@ -1,6 +1,8 @@
 
 import React, { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { useAppSelector } from '@/redux/hooks';
+import { mediaState } from '@/redux/mediaSlice';
 
 interface VideoPlayerProps {
   stream: MediaStream | null;
@@ -21,6 +23,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   className
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const {selectedVideoInputId} = useAppSelector(mediaState)
 
   useEffect(() => {
     if (stream && videoRef.current) {
@@ -29,7 +32,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const settings = videoTrack.getSettings();
     alert(settings.facingMode)
     }
-  }, [videoRef, stream])
+  }, [videoRef, stream, selectedVideoInputId])
 
   return (
     <div className={cn("video-container relative overflow-hidden rounded-xl", className)}>
