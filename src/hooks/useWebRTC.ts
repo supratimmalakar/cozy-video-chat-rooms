@@ -4,10 +4,10 @@ import { mediaState, setAudioDevices, setVideoDevices, setVideoFacingMode } from
 import { addDoc, collection, doc, getDoc, onSnapshot, setDoc, updateDoc, getDocs, deleteDoc } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { db } from "../firebase";
+import { db } from "../utils/firebase";
 import { userState } from "@/redux/userSlice";
-import { RTC_CONFIG } from "../constants";
-import { getConnectedDevices } from "../helpers";
+import { RTC_CONFIG } from "../utils/constants";
+import { getConnectedDevices } from "../utils/helpers";
 
 type SetState = React.Dispatch<React.SetStateAction<{
   stream: MediaStream | null;
@@ -49,6 +49,7 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
         })
         //Update the devices list after getting permission
         getConnectedDevices().then(devices => {
+          console.log({map: devices.filter(device => device.kind === 'audioinput').map(device => device) })
           const audioDevices = [...devices.filter(device => device.kind === 'audioinput')]
           const videoDevices = [...devices.filter(device => device.kind === 'videoinput')]
           dispatch(setVideoDevices(videoDevices))

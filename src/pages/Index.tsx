@@ -1,6 +1,6 @@
 
-import React, { ReactNode, useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { ReactNode, useCallback, useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,13 +14,22 @@ import withUser from '@/utils/withUser';
 /**
  * Home page with room creation and joining options
  */
-function Index (): ReactNode {
+function Index(): ReactNode {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [roomId, setRoomId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const dispatch = useAppDispatch();
+  const [searchParams] = useSearchParams();
+  const roomIdFromParams = searchParams.get('roomId');
+
+  useEffect(() => {
+    if (roomIdFromParams) {
+      setRoomId(roomIdFromParams);
+      handleJoinRoom(roomIdFromParams)
+    }
+  }, [roomIdFromParams])
 
   const setMediaDevices = useCallback(async () => {
     try {
@@ -56,7 +65,7 @@ function Index (): ReactNode {
   /**
    * Join an existing room by ID
    */
-  const handleJoinRoom = async () => {
+  const handleJoinRoom = async (roomId: string) => {
     if (!roomId.trim()) {
       toast({
         variant: "destructive",
@@ -86,8 +95,8 @@ function Index (): ReactNode {
 
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Button 
-                onClick={handleCreateRoom} 
+              <Button
+                onClick={handleCreateRoom}
                 className="w-full bg-cozy-primary hover:bg-cozy-secondary text-white"
                 disabled={isCreating}
               >
@@ -127,8 +136,8 @@ function Index (): ReactNode {
                   onChange={(e) => setRoomId(e.target.value)}
                   className="flex-1"
                 />
-                <Button 
-                  onClick={handleJoinRoom} 
+                <Button
+                  onClick={() => handleJoinRoom(roomId)}
                   disabled={!roomId.trim() || isJoining}
                   className="bg-cozy-secondary hover:bg-cozy-accent hover:text-cozy-foreground"
                 >

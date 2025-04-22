@@ -9,7 +9,8 @@ interface DeviceDropdownProps {
     btnLabel: string,
     title: string,
     isSelected: (device: DeviceInfo) => boolean,
-    onSelect: (device: DeviceInfo) => void
+    onSelect: (device: DeviceInfo) => void,
+    icon: ReactNode
 }
 
 interface ControlsProps {
@@ -19,7 +20,7 @@ interface ControlsProps {
   onLeaveCall?: () => void;
   isAudioEnabled?: boolean;
   isVideoEnabled?: boolean;
-  switchMedia: (device: DeviceInfo, type: 'audio' | 'video') => void;
+  switchMedia: (device: DeviceInfo, type: 'audio' | 'video') => void
 }
 
 interface VideoPlayerProps {
