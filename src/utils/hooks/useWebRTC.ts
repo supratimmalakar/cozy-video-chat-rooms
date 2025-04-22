@@ -2,7 +2,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { mediaState, setAudioDevices, setVideoDevices } from "@/redux/mediaSlice";
 import { addDoc, collection, doc, getDoc, onSnapshot, setDoc, updateDoc, getDocs, deleteDoc } from "firebase/firestore";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { db } from "../firebase";
 import { userState } from "@/redux/userSlice";
@@ -299,33 +299,41 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
   }
 
 
-  const switchVideoInput = async (newDeviceId: string) => {
+  const switchDeviceInput = async (newDeviceId: string, type: 'audio' | 'video') => {
     try {
+      // Get new track (only the required media type)
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: newDeviceId },
+        [type]: { deviceId: { exact: newDeviceId } }, // Use `{ exact: id }` to prevent fallback
       });
-
-      const newVideoTrack = newStream.getVideoTracks()[0];
-      const videoSender = pc.current.getSenders().find(s => s.track?.kind === 'video');
-
-      if (videoSender && newVideoTrack) {
-        await videoSender.replaceTrack(newVideoTrack);
-
-        // Stop old track and update local stream
-        localStream.current?.getVideoTracks().forEach(track => track.stop());
-        localStream.current?.removeTrack(localStream.current.getVideoTracks()[0]);
-        localStream.current?.addTrack(newVideoTrack);
-
+  
+      const newTrack = type === 'video' ? newStream.getVideoTracks()[0] : newStream.getAudioTracks()[0];
+      const sender = pc.current.getSenders().find(s => s.track?.kind === type);
+  
+      if (sender && newTrack) {
+        // Replace the track in the peer connection
+        await sender.replaceTrack(newTrack);
+  
+        // Stop and remove the old track from the local stream
+        const oldTracks = localStream.current?.getTracks().filter(track => track.kind === type);
+        oldTracks?.forEach(track => {
+          localStream.current?.removeTrack(track);
+          track.stop();
+        });
+  
+        // Add new track to local stream
+        localStream.current?.addTrack(newTrack);
+  
+        // Trigger UI update
         setLocalParticipant(prev => ({
           ...prev,
           stream: localStream.current,
         }));
       }
     } catch (error) {
-      console.error("Failed to switch video input:", error);
+      console.error(`Failed to switch ${type} input:`, error);
     }
   };
 
 
-  return { isInitializing, setIsInitializing, localStream, remoteStream, createRoom, switchVideoInput }
+  return { isInitializing, setIsInitializing, localStream, remoteStream, createRoom, switchDeviceInput }
 }

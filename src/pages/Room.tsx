@@ -9,7 +9,6 @@ import withUser from '@/utils/withUser';
 import { useAppSelector } from '@/redux/hooks';
 import { userState } from '@/redux/userSlice';
 import { toggleMedia } from '@/utils/helpers';
-import { mediaState } from '@/redux/mediaSlice';
 
 /**
  * Video conferencing room page
@@ -20,7 +19,6 @@ const Room = () => {
   const isCreator = searchParams.get('create') === 'true';
   const navigate = useNavigate();
   const {userId} = useAppSelector(userState);
-  const {audio, video} = useAppSelector(mediaState)
   
   
   
@@ -38,7 +36,7 @@ const Room = () => {
     isVideoEnabled: boolean;
   } | null>(null);
 
-  const { isInitializing, localStream, remoteStream } = useWebRTC(setLocalParticipant, setRemoteParticipant);
+  const { isInitializing, localStream, remoteStream, switchDeviceInput  } = useWebRTC(setLocalParticipant, setRemoteParticipant);
 
   const handleToggleAudio = () => {
     if (localParticipant) {
@@ -133,6 +131,7 @@ const Room = () => {
                   onLeaveCall={handleLeaveCall}
                   isAudioEnabled={localParticipant?.isAudioEnabled}
                   isVideoEnabled={localParticipant?.isVideoEnabled}
+                  switchMedia={(device: DeviceInfo, type: 'audio' | 'video') => switchDeviceInput(device.deviceId, type)}
                 />
               </div>
             )}
@@ -161,6 +160,7 @@ const Room = () => {
                   onLeaveCall={handleLeaveCall}
                   isAudioEnabled={localParticipant.isAudioEnabled}
                   isVideoEnabled={localParticipant.isVideoEnabled}
+                  switchMedia={(device: DeviceInfo, type: 'audio' | 'video') => switchDeviceInput(device.deviceId, type)}
                 />
               </div>
             )}

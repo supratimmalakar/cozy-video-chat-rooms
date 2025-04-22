@@ -25,7 +25,6 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-unused-vars": "off",
       "react-hooks/exhaustive-deps": "warn",
-      'no-undef': "warn",
     },
   }
 );

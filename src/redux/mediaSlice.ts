@@ -2,12 +2,6 @@ import { createSlice } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { RootState } from './store';
 
-type DeviceInfo = {
-    deviceId: string;
-    label: string;
-    kind: string
-};
-
 export interface MediaState {
   audio: DeviceInfo[];
   video: DeviceInfo[];

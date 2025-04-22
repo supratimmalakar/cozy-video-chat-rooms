@@ -2,26 +2,32 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAppDispatch, useAppSelector } from '@/redux/hooks';
+import { mediaState, setSelectedAudioInputId, setSelectedVideoInputId } from '@/redux/mediaSlice';
+import DeviceDropdown from './ui/DeviceDropdown';
 
-interface ControlsProps {
-  className?: string;
-  onToggleAudio?: () => void;
-  onToggleVideo?: () => void;
-  onLeaveCall?: () => void;
-  isAudioEnabled?: boolean;
-  isVideoEnabled?: boolean;
-}
 
-const Controls: React.FC<ControlsProps> = ({ 
+const Controls: React.FC<ControlsProps> = ({
   className,
   onToggleAudio,
   onToggleVideo,
   onLeaveCall,
   isAudioEnabled = true,
-  isVideoEnabled = true
+  isVideoEnabled = true,
+  switchMedia
 }) => {
+  const dispatch = useAppDispatch()
+  const { audio, video, selectedAudioInputId, selectedVideoInputId } = useAppSelector(mediaState);
+  const handleVideoDeviceSelect = (device: DeviceInfo) => {
+    dispatch(setSelectedVideoInputId(device.deviceId))
+    switchMedia(device, 'video')
+  }
+  const handleAudioDeviceSelect = (device: DeviceInfo) => {
+    dispatch(setSelectedAudioInputId(device.deviceId))
+    switchMedia(device, 'audio')
+  }
   return (
-    <div className={cn("controls-overlay flex justify-center gap-4 p-4", className)}>
+    <div className={cn("controls-overlay flex justify-center w-full gap-4 p-4", className)}>
       <Button
         onClick={onToggleAudio}
         variant={isAudioEnabled ? "secondary" : "destructive"}
@@ -69,6 +75,23 @@ const Controls: React.FC<ControlsProps> = ({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-3m-2-2H9a2 2 0 00-2 2v1m16-12V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V14m-2-4h.01" />
         </svg>
       </Button>
+
+      <div className='absolute right-0 bottom-0 p-4 flex flex-row gap-2'>
+        <DeviceDropdown onSelect={handleVideoDeviceSelect}
+          devices={video}
+          title='Video Input'
+          btnLabel='Video Device'
+          isSelected={(device) => device.deviceId === selectedVideoInputId} 
+        />
+
+        <DeviceDropdown onSelect={handleAudioDeviceSelect}
+          devices={audio}
+          title='Audio Input'
+          btnLabel='Audio Device'
+          isSelected={(device) => device.deviceId === selectedAudioInputId} 
+        />
+      </div>
+
     </div>
   );
 };
