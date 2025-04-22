@@ -9,6 +9,7 @@ import withUser from '@/utils/withUser';
 import { useAppSelector } from '@/redux/hooks';
 import { userState } from '@/redux/userSlice';
 import { toggleMedia } from '@/utils/helpers';
+import { mediaState } from '@/redux/mediaSlice';
 
 /**
  * Video conferencing room page
@@ -19,6 +20,7 @@ const Room = () => {
   const isCreator = searchParams.get('create') === 'true';
   const navigate = useNavigate();
   const {userId} = useAppSelector(userState);
+  const {audio, video} = useAppSelector(mediaState)
   
   
   

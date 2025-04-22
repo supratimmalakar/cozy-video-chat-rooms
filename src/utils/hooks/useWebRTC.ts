@@ -1,12 +1,13 @@
 import { useToast } from "@/hooks/use-toast";
-import { useAppSelector } from "@/redux/hooks";
-import { mediaState } from "@/redux/mediaSlice";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { mediaState, setAudioDevices, setVideoDevices } from "@/redux/mediaSlice";
 import { addDoc, collection, doc, getDoc, onSnapshot, setDoc, updateDoc, getDocs, deleteDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { db } from "../firebase";
 import { userState } from "@/redux/userSlice";
 import { RTC_CONFIG } from "../constants";
+import { getConnectedDevices } from "../helpers";
 
 type SetState = React.Dispatch<React.SetStateAction<{
   stream: MediaStream | null;
@@ -17,19 +18,20 @@ type SetState = React.Dispatch<React.SetStateAction<{
 export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: SetState) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const { selectedAudioInputId, selectedVideoInputId } = useAppSelector(mediaState);
-  const {userId} = useAppSelector(userState);
+  const { userId } = useAppSelector(userState);
 
   const pc = useRef(new RTCPeerConnection(RTC_CONFIG));   //Initialize WebRTC instance
   const localStream = useRef<MediaStream | null>(null);
   const remoteStream = useRef<MediaStream | null>(null);
   const isRoomInitialized = useRef<boolean>(false);
   const creatorJoined = useRef<boolean>(false);
+  const dispatch = useAppDispatch();
 
   const { toast } = useToast();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  
+
   const isCreator = searchParams.get('create') === 'true';
 
 
@@ -45,9 +47,16 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
             deviceId: selectedAudioInputId
           }
         })
+        //Update the devices list after getting permission
+        getConnectedDevices().then(devices => {
+          const audioDevices = [...devices.filter(device => device.kind === 'audioinput')]
+          const videoDevices = [...devices.filter(device => device.kind === 'videoinput')]
+          dispatch(setVideoDevices(videoDevices))
+          dispatch(setAudioDevices(audioDevices))
+        })
         localStream.current = stream;
         stream.getTracks().forEach(track => pc.current.addTrack(track, stream))
-        setLocalParticipant({stream: localStream.current, isAudioEnabled: true, isVideoEnabled: true});
+        setLocalParticipant({ stream: localStream.current, isAudioEnabled: true, isVideoEnabled: true });
 
         if (!isRoomInitialized.current) {
           if (isCreator) await createRoom(id)
@@ -69,15 +78,29 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
     };
 
     initializeRoom();
-  }, [selectedAudioInputId, selectedVideoInputId])
+  }, [])
 
   //This useEffect checks for any changes in the participants collection in the room,
   //and adds the remote participant or ends the calls when one user quits
   useEffect(() => {
     if (!id) return;
     const participantsRef = collection(doc(db, 'rooms', id), 'participants');
+    const roomRef = doc(db, 'rooms', id);
 
-    const unsubscribe = onSnapshot(participantsRef, snapshot => {
+    const unsubscribleRoomRef = onSnapshot(roomRef, async snapshot => {
+      const data = snapshot.data();
+      if (data?.disconnect) {
+        navigate('/')
+          toast({
+            variant: "destructive",
+            title: "Call Ended",
+          });
+          await deleteDoc(roomRef)
+      }
+
+    })
+
+    const unsubscribeparticipantsRef = onSnapshot(participantsRef, async snapshot => {
       const participants = snapshot.docs.map((doc) => ({
         id: doc.id,
         audio: doc.data().audio,
@@ -93,19 +116,12 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
         }))
       } else {
         setRemoteParticipant(null)
-        if (creatorJoined.current) {
-          navigate('/')
-          toast({
-            variant: "destructive",
-            title: "Call Ended",
-          });
-        }
-
       }
     });
-  
+
     return () => {
-      unsubscribe()
+      unsubscribeparticipantsRef()
+      unsubscribleRoomRef();
     };
   }, [id, userId])
 
@@ -121,6 +137,9 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
       if (participantsData.length > 1) {
         const participantRef = doc(db, 'rooms', id, 'participants', userId);
         await deleteDoc(participantRef);
+        await updateDoc(roomRef, {
+          disconnect: true
+        })
       } else {
         await deleteDoc(roomRef)
       }
@@ -133,128 +152,149 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
   }, [])
 
   async function createRoom(id: string) {
-    const roomRef = doc(db, 'rooms', id);
+    try {
+      const roomRef = doc(db, 'rooms', id);
 
-    const offerCandidatesRef = collection(roomRef, 'offerCandidates');
-    const answerCandidatesRef = collection(roomRef, 'answerCandidates');
-    const participantRef = doc(db, 'rooms', id, 'participants', userId);
+      const offerCandidatesRef = collection(roomRef, 'offerCandidates');
+      const answerCandidatesRef = collection(roomRef, 'answerCandidates');
+      const participantRef = doc(db, 'rooms', id, 'participants', userId);
 
-    //Check for ice candidates and add then to the offerCanditates collection in the room doc as they are discovered
-    pc.current.onicecandidate = async (event) => {
-      if (event.candidate) {
-        await addDoc(offerCandidatesRef, event.candidate.toJSON());
+      //Check for ice candidates and add then to the offerCanditates collection in the room doc as they are discovered
+      pc.current.onicecandidate = async (event) => {
+        if (event.candidate) {
+          await addDoc(offerCandidatesRef, event.candidate.toJSON());
+        }
+      };
+
+      const user = {
+        audio: true,
+        video: true
       }
-    };
 
-    const user = {
-      audio: true,
-      video: true
-    }
+      await setDoc(participantRef, user)
 
-    await setDoc(participantRef, user)
+      pc.current.ontrack = (event) => {
+        remoteStream.current = event.streams[0];
+        setRemoteParticipant({ stream: remoteStream.current, isAudioEnabled: true, isVideoEnabled: true });
+      };
 
-    pc.current.ontrack = (event) => {
-      remoteStream.current = event.streams[0];
-      setRemoteParticipant({stream: remoteStream.current, isAudioEnabled: true, isVideoEnabled: true});
-    };
+      //create a offer and save to firestore, so that the next user can use the offer to create an connection
+      const offer = await pc.current.createOffer();
+      await pc.current.setLocalDescription(offer);
 
-    //create a offer and save to firestore, so that the next user can use the offer to create an connection
-    const offer = await pc.current.createOffer();
-    await pc.current.setLocalDescription(offer);
+      await setDoc(roomRef, {
+        offer,
+        createdAt: new Date(),
+      });
 
-    await setDoc(roomRef, {
-      offer,
-      createdAt: new Date(),
-    });
+      creatorJoined.current = true
 
-    creatorJoined.current = true
-
-    // Check for answer in the room doc. If found then set the remote description and we can move on with the handshake
-    onSnapshot(roomRef, async (snapshot) => {
-      const data = snapshot.data();
-      if (data?.answer && !pc.current.currentRemoteDescription) {
-        await pc.current.setRemoteDescription(new RTCSessionDescription(data.answer));
-      }
-    });
-
-    //Check for answer ICE Candidates from the other user
-    onSnapshot(answerCandidatesRef, snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+      // Check for answer in the room doc. If found then set the remote description and we can move on with the handshake
+      onSnapshot(roomRef, async (snapshot) => {
+        const data = snapshot.data();
+        if (data?.answer && !pc.current.currentRemoteDescription) {
+          await pc.current.setRemoteDescription(new RTCSessionDescription(data.answer));
         }
       });
-    });
-  };
 
-  async function joinRoom(id: string) {
-    const roomRef = doc(db, 'rooms', id);
-    creatorJoined.current = true;
-
-    const answerCandidatesRef = collection(roomRef, 'answerCandidates');
-    const offerCandidatesRef = collection(roomRef, 'offerCandidates');
-    const participants = collection(roomRef, 'participants');
-    const participantRef = doc(db, 'rooms', id, 'participants', userId);
-
-    const user = {
-      audio: true,
-      video: true
+      //Check for answer ICE Candidates from the other user
+      onSnapshot(answerCandidatesRef, snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+          }
+        });
+      });
     }
-
-    const roomSnapshot = await getDoc(roomRef);
-    const participantsData = (await getDocs(participants)).docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    const data = roomSnapshot.data();
-
-
-    if (!roomSnapshot.exists() || !data?.offer) {
+    catch (err) {
+      console.log(err)
       toast({
         variant: "destructive",
         title: "Connection Error",
-        description: "Room does not exist.",
+        description: "There was an error while joining the room",
       });
-      return;
     }
 
-    //Limiting no. of participants to 2
-    if (participantsData.length >= 2) {
+  };
+
+  async function joinRoom(id: string) {
+    try {
+      const roomRef = doc(db, 'rooms', id);
+      creatorJoined.current = true;
+
+      const answerCandidatesRef = collection(roomRef, 'answerCandidates');
+      const offerCandidatesRef = collection(roomRef, 'offerCandidates');
+      const participants = collection(roomRef, 'participants');
+      const participantRef = doc(db, 'rooms', id, 'participants', userId);
+
+      const user = {
+        audio: true,
+        video: true
+      }
+
+      const [roomSnapshot, participantsDataRaw] = await Promise.all([getDoc(roomRef), getDocs(participants)]) //For concurrent data fetching since these dont depend on one another
+      const participantsData = participantsDataRaw.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      const data = roomSnapshot.data();
+
+
+      if (!roomSnapshot.exists() || !data?.offer) {
+        toast({
+          variant: "destructive",
+          title: "Connection Error",
+          description: "Room does not exist.",
+        });
+        return;
+      }
+
+      //Limiting no. of participants to 2
+      if (participantsData.length >= 2) {
+        toast({
+          variant: "destructive",
+          title: "Room is full",
+        });
+        return;
+      }
+
+      await setDoc(participantRef, user)
+
+      //Check for ice candidates and add then to the answerCanditates collection in the room doc as they are discovered
+      pc.current.onicecandidate = async (event) => {
+        if (event.candidate) {
+          await addDoc(answerCandidatesRef, event.candidate.toJSON());
+        }
+      };
+      pc.current.ontrack = (event) => {
+        remoteStream.current = event.streams[0];
+        setRemoteParticipant({ stream: remoteStream.current, isAudioEnabled: true, isVideoEnabled: true });
+      };
+
+      //In reply to the offer from the room creator, create an answer and save it in firestore so that the creator can recieve the answer
+      //and proceed with the handshake
+      pc.current.setRemoteDescription(new RTCSessionDescription(data.offer))
+      const answer = await pc.current.createAnswer();
+      pc.current.setLocalDescription(answer);
+      await setDoc(roomRef, { ...data, answer })
+
+      //Check for offer ICE Candidates from the other user
+      onSnapshot(offerCandidatesRef, snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+          }
+        });
+      });
+    }
+    catch (err) {
+      console.log(err)
       toast({
         variant: "destructive",
-        title: "Room is full",
+        title: "Connection Error",
+        description: "There was an error while joining the room",
       });
-      return;
     }
-
-    await setDoc(participantRef, user)
-
-    //Check for ice candidates and add then to the answerCanditates collection in the room doc as they are discovered
-    pc.current.onicecandidate = async (event) => {
-      if (event.candidate) {
-        await addDoc(answerCandidatesRef, event.candidate.toJSON());
-      }
-    };
-    pc.current.ontrack = (event) => {
-      remoteStream.current = event.streams[0];
-      setRemoteParticipant({stream: remoteStream.current, isAudioEnabled: true, isVideoEnabled: true});
-    };
-
-    //In reply to the offer from the room creator, create an answer and save it in firestore so that the creator can recieve the answer
-    //and proceed with the handshake
-    pc.current.setRemoteDescription(new RTCSessionDescription(data.offer))
-    const answer = await pc.current.createAnswer();
-    pc.current.setLocalDescription(answer);
-    await setDoc(roomRef, { ...data, answer})
-
-   //Check for offer ICE Candidates from the other user
-    onSnapshot(offerCandidatesRef, snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
-        }
-      });
-    });
 
   }
 
@@ -264,18 +304,18 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { deviceId: newDeviceId },
       });
-  
+
       const newVideoTrack = newStream.getVideoTracks()[0];
       const videoSender = pc.current.getSenders().find(s => s.track?.kind === 'video');
-  
+
       if (videoSender && newVideoTrack) {
         await videoSender.replaceTrack(newVideoTrack);
-  
+
         // Stop old track and update local stream
         localStream.current?.getVideoTracks().forEach(track => track.stop());
         localStream.current?.removeTrack(localStream.current.getVideoTracks()[0]);
         localStream.current?.addTrack(newVideoTrack);
-  
+
         setLocalParticipant(prev => ({
           ...prev,
           stream: localStream.current,
