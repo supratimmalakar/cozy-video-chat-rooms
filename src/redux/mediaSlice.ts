@@ -7,6 +7,7 @@ export interface MediaState {
   video: DeviceInfo[];
   selectedVideoInputId: string;
   selectedAudioInputId: string;
+  videoFacingMode: string | undefined;
 }
 
 const initialState: MediaState = {
@@ -14,6 +15,7 @@ const initialState: MediaState = {
   video: [],
   selectedVideoInputId: '',
   selectedAudioInputId: '',
+  videoFacingMode: 'user',
 }
 
 export const mediaSlice = createSlice({
@@ -33,12 +35,15 @@ export const mediaSlice = createSlice({
     },
     setSelectedAudioInputId: (state, action: PayloadAction<string>) => {
         state.selectedAudioInputId = action.payload;
-    }
+    },
+    setVideoFacingMode: (state, action: PayloadAction<string | undefined>) => {
+      state.videoFacingMode = action.payload;
+  }
   },
 })
 
 // Action creators are generated for each case reducer function
-export const { setAudioDevices, setVideoDevices,setSelectedVideoInputId, setSelectedAudioInputId } = mediaSlice.actions;
+export const { setAudioDevices, setVideoDevices,setSelectedVideoInputId, setSelectedAudioInputId, setVideoFacingMode } = mediaSlice.actions;
 
 export const mediaState = (state: RootState) => state.media;
 

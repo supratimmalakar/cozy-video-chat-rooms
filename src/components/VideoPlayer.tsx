@@ -4,16 +4,6 @@ import { cn } from '@/lib/utils';
 import { useAppSelector } from '@/redux/hooks';
 import { mediaState } from '@/redux/mediaSlice';
 
-interface VideoPlayerProps {
-  stream: MediaStream | null;
-  muted?: boolean;
-  isLocal?: boolean;
-  isAudioEnabled?: boolean;
-  isVideoEnabled?: boolean;
-  connectionStatus?: 'connecting' | 'connected' | 'disconnected';
-  className?: string;
-}
-
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
   stream,
   muted = false,
@@ -23,20 +13,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   className
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const {selectedVideoInputId} = useAppSelector(mediaState)
+  const {videoFacingMode} = useAppSelector(mediaState);
+  const flip = videoFacingMode === undefined || videoFacingMode === 'user';
 
   useEffect(() => {
     if (stream && videoRef.current) {
       videoRef.current.srcObject = stream;
     }
-  }, [videoRef, stream, selectedVideoInputId])
-
-  useEffect(() => {
-    if (!stream) return;
-    const videoTrack = stream.getVideoTracks()[0];
-    const settings = videoTrack.getSettings();
-    alert(settings.facingMode)
-  }, [stream])
+  }, [videoRef, stream])
 
   return (
     <div className={cn("video-container relative overflow-hidden rounded-xl", className)}>
@@ -49,7 +33,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             ref={videoRef}
             className={cn(
               "video-element w-full h-full object-cover",
-              isLocal && "scale-x-[-1]"
+              isLocal && flip && "scale-x-[-1]"
             )}
           />
 

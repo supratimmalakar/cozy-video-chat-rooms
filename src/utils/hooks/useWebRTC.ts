@@ -1,6 +1,6 @@
 import { useToast } from "@/hooks/use-toast";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { mediaState, setAudioDevices, setVideoDevices } from "@/redux/mediaSlice";
+import { mediaState, setAudioDevices, setVideoDevices, setVideoFacingMode } from "@/redux/mediaSlice";
 import { addDoc, collection, doc, getDoc, onSnapshot, setDoc, updateDoc, getDocs, deleteDoc } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -312,6 +312,13 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
       if (sender && newTrack) {
         // Replace the track in the peer connection
         await sender.replaceTrack(newTrack);
+
+        if (type === 'video') {
+          const settings = newTrack.getSettings();
+          if (settings.facingMode) {
+            dispatch(setVideoFacingMode(settings.facingMode));
+          }
+        }
   
         // Stop and remove the old track from the local stream
         const oldTracks = localStream.current?.getTracks().filter(track => track.kind === type);

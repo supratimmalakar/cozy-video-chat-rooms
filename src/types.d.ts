@@ -21,3 +21,13 @@ interface ControlsProps {
   isVideoEnabled?: boolean;
   switchMedia: (device: DeviceInfo, type: 'audio' | 'video') => void;
 }
+
+interface VideoPlayerProps {
+  stream: MediaStream | null;
+  muted?: boolean;
+  isLocal?: boolean;
+  isAudioEnabled?: boolean;
+  isVideoEnabled?: boolean;
+  connectionStatus?: 'connecting' | 'connected' | 'disconnected';
+  className?: string;
+}
