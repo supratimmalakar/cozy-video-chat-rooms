@@ -20,9 +20,11 @@ const RoomIdDisplay: React.FC<RoomIdDisplayProps> = ({ roomId }) => {
    */
   const handleCopyRoomId = () => {
     if (navigator.share) {
+      console.log({'url': `${import.meta.env.BASE_URL}/?roomId=${roomId}`})
       navigator.share({
-        title: "Catchup with your friends, visit the link below",
-        url: `${window.location.origin}/?roomId=${roomId}`
+        title: "Catchup - Video Chat",
+        text: 'Catchup with your friends!',
+        url: `${import.meta.env.VITE_BASE_URL}/?roomId=${roomId}`
       }).catch((err) => { console.log(err) });
     } else {
       navigator.clipboard.writeText(roomId);
