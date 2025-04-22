@@ -24,7 +24,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [videoRef, stream])
 
   return (
-    <div className={cn("video-container relative overflow-hidden rounded-xl", className)}>
+    <div className={cn("video-container relative overflow-hidden", className)}>
       {stream ? (
         <>
           <video
@@ -33,7 +33,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             muted={muted}
             ref={videoRef}
             className={cn(
-              "video-element w-full h-full object-cover",
+              "video-element w-full h-full object-contain",
               isLocal && flip && "scale-x-[-1]"
             )}
           />

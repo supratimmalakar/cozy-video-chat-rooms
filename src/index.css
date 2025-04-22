@@ -81,7 +81,7 @@
 .video-container {
   position: relative;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: 11px;
   background-color: #1f2937;
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useIsMobile } from "./use-mobile";
 
 const useDrag = () => {
     const parentRef = useRef<HTMLDivElement>(null);
@@ -6,8 +7,10 @@ const useDrag = () => {
 
     const [isDragging, setIsDragging] = useState(false);
     const offset = useRef({ x: 0, y: 0 });
+    const isMobile= useIsMobile();
 
     const handleMouseDown = (e: React.MouseEvent) => {
+        if (isMobile) return;
         setIsDragging(true);
         const rect = boxRef.current?.getBoundingClientRect();
         offset.current = {
@@ -38,6 +41,7 @@ const useDrag = () => {
 
     // Attach/remove event listeners globally
     useEffect(() => {
+        if (isMobile) return;
         if (isDragging) {
             window.addEventListener("mousemove", handleMouseMove);
             window.addEventListener("mouseup", handleMouseUp);
