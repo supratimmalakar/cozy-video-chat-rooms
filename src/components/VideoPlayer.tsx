@@ -28,11 +28,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     if (stream && videoRef.current) {
       videoRef.current.srcObject = stream;
-      const videoTrack = stream.getVideoTracks()[0];
-    const settings = videoTrack.getSettings();
-    alert(settings.facingMode)
     }
   }, [videoRef, stream, selectedVideoInputId])
+
+  useEffect(() => {
+    if (!stream) return;
+    const videoTrack = stream.getVideoTracks()[0];
+    const settings = videoTrack.getSettings();
+    alert({'facingMode': settings.facingMode})
+  }, [stream])
 
   return (
     <div className={cn("video-container relative overflow-hidden rounded-xl", className)}>
