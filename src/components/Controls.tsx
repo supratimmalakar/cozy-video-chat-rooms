@@ -18,7 +18,7 @@ const Controls: React.FC<ControlsProps> = ({
 }) => {
   const isMobile = useIsMobile()
   return (
-    <div className={cn("controls-overlay flex justify-center w-full gap-4 p-4", className)}>
+    <div className={cn("controls-overlay z-10 flex justify-center w-full gap-4 p-4", className)}>
       <Button
         onClick={onToggleAudio}
         variant={isAudioEnabled ? "secondary" : "destructive"}

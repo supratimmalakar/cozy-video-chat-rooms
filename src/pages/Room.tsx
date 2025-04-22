@@ -122,7 +122,7 @@ const Room = () => {
               <div
                 onMouseDown={handleMouseDown}
                 ref={boxRef}
-                className="absolute z-[1000] cursor-grab active:cursor-grabbing w-40 sm:h-40  top-4 sm:left-8 left-[calc(100%-176px)] h-30 md:w-64 md:h-48 shadow-lg rounded-xl overflow-hidden border-2 sm:pt-4 bg-accent border-accent"
+                className="absolute z-20 cursor-grab active:cursor-grabbing w-40 sm:h-40  top-4 sm:left-8 left-[calc(100%-176px)] h-30 md:w-64 md:h-48 shadow-lg rounded-xl overflow-hidden border-2 sm:pt-4 bg-accent border-accent"
               >
                 <div style={{display: isMobile ? 'none' : 'block'}} className='absolute top-0 left-1/2'><GripHorizontalIcon size={16} /></div>
                 <VideoPlayer
