@@ -10,6 +10,8 @@ import { useAppSelector } from '@/redux/hooks';
 import { userState } from '@/redux/userSlice';
 import { toggleMedia } from '@/utils/helpers';
 import Settings from '@/components/ui/Settings';
+import useDrag from '@/hooks/useDrag';
+import { GripHorizontalIcon } from 'lucide-react';
 
 /**
  * Video conferencing room page
@@ -20,6 +22,7 @@ const Room = () => {
   const isCreator = searchParams.get('create') === 'true';
   const navigate = useNavigate();
   const { userId } = useAppSelector(userState);
+  const { parentRef, boxRef, handleMouseDown } = useDrag();
 
 
 
@@ -103,7 +106,7 @@ const Room = () => {
       {/* Main content with video streams */}
       <div className="flex-1 p-4 relative">
         {remoteParticipant && (
-          <div className="relative flex-1">
+          <div ref={parentRef} className="relative flex-1">
             {/* Remote participant (large) */}
             <VideoPlayer
               stream={remoteParticipant.stream}
@@ -112,9 +115,14 @@ const Room = () => {
               className="h-[calc(100vh-120px)] w-full"
             />
 
-            {/* Local participant (picture-in-picture) */}
+            {/* Local participant (picture-in-picture) draggable */}
             {localParticipant && (
-              <div className="absolute bottom-24 right-4 w-40 h-30 md:w-64 md:h-48 shadow-lg rounded-xl overflow-hidden border-2 border-white">
+              <div
+                onMouseDown={handleMouseDown}
+                ref={boxRef}
+                className="absolute z-[1000] cursor-grab active:cursor-grabbing w-40 top-4 left-24 h-30 md:w-64 md:h-48 shadow-lg rounded-xl overflow-hidden border-2 pt-4 bg-accent border-accent"
+              >
+                <div className='absolute top-0 left-1/2'><GripHorizontalIcon size={16} /></div>
                 <VideoPlayer
                   stream={localParticipant.stream}
                   muted={true}

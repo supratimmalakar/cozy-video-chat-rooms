@@ -20,7 +20,6 @@ const RoomIdDisplay: React.FC<RoomIdDisplayProps> = ({ roomId }) => {
    */
   const handleCopyRoomId = () => {
     if (navigator.share) {
-      console.log({'url': `${import.meta.env.BASE_URL}/?roomId=${roomId}`})
       navigator.share({
         title: "Catchup - Video Chat",
         text: 'Catchup with your friends!',

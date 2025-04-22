@@ -49,7 +49,6 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
         })
         //Update the devices list after getting permission
         getConnectedDevices().then(devices => {
-          console.log({map: devices.filter(device => device.kind === 'audioinput').map(device => device) })
           const audioDevices = [...devices.filter(device => device.kind === 'audioinput')]
           const videoDevices = [...devices.filter(device => device.kind === 'videoinput')]
           dispatch(setVideoDevices(videoDevices))
