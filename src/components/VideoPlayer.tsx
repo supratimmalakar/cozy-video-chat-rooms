@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useAppSelector } from '@/redux/hooks';
 import { mediaState } from '@/redux/mediaSlice';
+import { MicOffIcon } from 'lucide-react';
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
   stream,
@@ -51,10 +52,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           )}
 
           {!isAudioEnabled && (
-            <div className="absolute bottom-4 left-4 bg-red-500 rounded-full p-1" title="Microphone muted">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.465a5 5 0 01-.293-.707l-.002-.006a4.98 4.98 0 01-.268-1.752 4.922 4.922 0 01.517-2.207c.183-.395.41-.764.676-1.093a4.979 4.979 0 016.445-.773m-8.2 12.046L4.59 10.281l13.32 13.32" />
-              </svg>
+            <div className="absolute bottom-4 left-4 bg-red-500 rounded-full p-2" title="Microphone muted">
+              <MicOffIcon size={12} color='white'/>
             </div>
           )}
         </>
