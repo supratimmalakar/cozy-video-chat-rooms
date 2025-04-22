@@ -330,7 +330,6 @@ export const useWebRTC = (setLocalParticipant: SetState, setRemoteParticipant: S
         // Add new track to local stream
         localStream.current?.addTrack(newTrack);
   
-        // Trigger UI update
         setLocalParticipant(prev => ({
           ...prev,
           stream: localStream.current,
