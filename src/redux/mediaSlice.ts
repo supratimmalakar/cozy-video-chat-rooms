@@ -23,27 +23,33 @@ export const mediaSlice = createSlice({
   initialState,
   reducers: {
     setAudioDevices: (state, action: PayloadAction<DeviceInfo[]>) => {
-        state.audio = [...action.payload]
-        state.selectedAudioInputId = action.payload[0].deviceId || '';
+      const devices = [...action.payload];
+      const filteredDevices = devices?.filter(device => device?.deviceId !== 'default' && device?.deviceId !== 'communications')
+      const defaultDevice = devices?.find(device => device?.deviceId === 'default')
+      state.audio = [...filteredDevices]
+      state.selectedAudioInputId = filteredDevices?.find(device => device?.groupId === defaultDevice?.groupId)?.deviceId || filteredDevices[0].deviceId;
     },
     setVideoDevices: (state, action: PayloadAction<DeviceInfo[]>) => {
-        state.video = [...action.payload];
-        state.selectedVideoInputId = action.payload[0].deviceId || '';
+      const devices = [...action.payload];
+      const filteredDevices = devices?.filter(device => device?.deviceId !== 'default' && device?.deviceId !== 'communications')
+      const defaultDevice = devices?.find(device => device?.deviceId === 'default')
+      state.video = [...filteredDevices]
+      state.selectedVideoInputId = filteredDevices?.find(device => device?.groupId === defaultDevice?.groupId)?.deviceId || filteredDevices[0].deviceId;
     },
     setSelectedVideoInputId: (state, action: PayloadAction<string>) => {
-        state.selectedVideoInputId = action.payload;
+      state.selectedVideoInputId = action.payload;
     },
     setSelectedAudioInputId: (state, action: PayloadAction<string>) => {
-        state.selectedAudioInputId = action.payload;
+      state.selectedAudioInputId = action.payload;
     },
     setVideoFacingMode: (state, action: PayloadAction<string | undefined>) => {
       state.videoFacingMode = action.payload;
-  }
+    }
   },
 })
 
 // Action creators are generated for each case reducer function
-export const { setAudioDevices, setVideoDevices,setSelectedVideoInputId, setSelectedAudioInputId, setVideoFacingMode } = mediaSlice.actions;
+export const { setAudioDevices, setVideoDevices, setSelectedVideoInputId, setSelectedAudioInputId, setVideoFacingMode } = mediaSlice.actions;
 
 export const mediaState = (state: RootState) => state.media;
 

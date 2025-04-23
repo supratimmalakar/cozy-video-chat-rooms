@@ -1,7 +1,8 @@
 type DeviceInfo = {
     deviceId: string;
     label: string;
-    kind: string
+    kind: string;
+    groupId: string;
 };
 
 interface DeviceDropdownProps {
